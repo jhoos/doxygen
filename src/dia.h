@@ -21,10 +21,13 @@
 class QCString;
 class FTextStream;
 
-enum DiaOutputFormat { DIA_BITMAP , DIA_EPS };
+enum DiaOutputFormat { DIA_BITMAP , DIA_EPS , DIA_SVG };
 
 void writeDiaGraphFromFile(const char *inFile,const char *outDir,
                            const char *outFile,DiaOutputFormat format);
+
+bool writeDiaSVGFigureLink(FTextStream &out,const QCString &relPath,
+                           const QCString &baseName,const QCString &absImgName);
 
 #endif
 

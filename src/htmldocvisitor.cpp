@@ -35,6 +35,7 @@
 #include "memberdef.h"
 #include "htmlentity.h"
 #include "plantuml.h"
+#include "portable.h"
 
 static const int NUM_HTML_LIST_TYPES = 4;
 static const char types[][NUM_HTML_LIST_TYPES] = {"1", "a", "i", "A"};
@@ -2024,10 +2025,21 @@ void HtmlDocVisitor::writeDiaFile(const QCString &fileName,
     baseName=baseName.left(i);
   }
   baseName.prepend("dia_");
-  QCString outDir = Config_getString("HTML_OUTPUT");
-  writeDiaGraphFromFile(fileName,outDir,baseName,DIA_BITMAP);
+  QCString outDir=Config_getString("HTML_OUTPUT");
+  QCString imgExt=Config_getEnum("DIA_IMAGE_FORMAT");
+  DiaOutputFormat diaFormat=DIA_BITMAP;
+  if ("svg"==imgExt)
+    diaFormat=DIA_SVG;
+  writeDiaGraphFromFile(fileName,outDir,baseName,diaFormat);
 
-  m_t << "<img src=\"" << relPath << baseName << ".png" << "\" />" << endl;
+  if (diaFormat==DIA_SVG)
+  {
+    writeDiaSVGFigureLink(m_t,relPath,baseName,outDir+portable_pathSeparator()+baseName+".svg");
+  }
+  else
+  {
+    m_t << "<img src=\"" << relPath << baseName << "." << imgExt << "\" />" << endl;
+  }
 }
 
 void HtmlDocVisitor::writePlantUMLFile(const QCString &fileName,

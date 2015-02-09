@@ -22,8 +22,68 @@
 #include "util.h"
 
 #include <qdir.h>
+#include <math.h>
 
 static const int maxCmdLine = 40960;
+
+// extract size from a dot generated SVG file
+static bool readSVGSize(const QCString &fileName,int *width,int *height)
+{
+  bool found=FALSE;
+  QFile f(fileName);
+  int ppi = Config_getInt("DIA_SVG_PPI");
+  if (!f.open(IO_ReadOnly))
+  {
+    return FALSE;
+  }
+  const int maxLineLen=4096;
+  char buf[maxLineLen];
+  while (!f.atEnd() && !found)
+  {
+    int numBytes = f.readLine(buf,maxLineLen-1); // read line
+    if (numBytes>0)
+    {
+      buf[numBytes]='\0';
+      if (sscanf(buf,"<svg width=\"%dcm\" height=\"%dcm\"",width,height)==2)
+      {
+        // convert from cm
+        *width=ceil(*width/2.54*ppi);
+        *height=ceil(*height/2.54*ppi);
+        //printf("Found fixed size %dx%d for %s!\n",*width,*height,fileName.data());
+        found=TRUE;
+      }
+    }
+    else // read error!
+    {
+      //printf("Read error %d!\n",numBytes);
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+// check if a reference to a SVG figure can be written and does so if possible.
+// return FALSE if not possible (for instance because the SVG file is not yet generated).
+bool writeDiaSVGFigureLink(FTextStream &out,const QCString &relPath,
+                           const QCString &baseName,const QCString &absImgName)
+{
+  int width=600,height=600;
+  if (!readSVGSize(absImgName,&width,&height))
+  {
+    return FALSE;
+  }
+
+  out << "<img src=\""
+      << relPath << baseName << ".svg\" width=\""
+      << width << "\" height=\"" << height << "\">";
+  out << "</object>";
+  if (width==-1)
+  {
+    out << "</div>";
+  }
+
+  return TRUE;
+}
 
 void writeDiaGraphFromFile(const char *inFile,const char *outDir,
                            const char *outFile,DiaOutputFormat format)
@@ -32,11 +92,6 @@ void writeDiaGraphFromFile(const char *inFile,const char *outDir,
   absOutFile+=portable_pathSeparator();
   absOutFile+=outFile;
 
-  // chdir to the output dir, so dot can find the font file.
-  QCString oldDir = QDir::currentDirPath().utf8();
-  // go to the html output directory (i.e. path)
-  QDir::setCurrent(outDir);
-  //printf("Going to dir %s\n",QDir::currentDirPath().data());
   QCString diaExe = Config_getString("DIA_PATH")+"dia"+portable_commandExtension();
   QCString diaArgs;
   QCString extension;
@@ -51,9 +106,14 @@ void writeDiaGraphFromFile(const char *inFile,const char *outDir,
     diaArgs+="-t eps";
     extension=".eps";
   }
+  else if (format==DIA_SVG)
+  {
+    diaArgs+="-t svg";
+    extension=".svg";
+  }
 
   diaArgs+=" -e \"";
-  diaArgs+=outFile;
+  diaArgs+=absOutFile;
   diaArgs+=extension+"\"";
 
   diaArgs+=" \"";
@@ -73,7 +133,7 @@ void writeDiaGraphFromFile(const char *inFile,const char *outDir,
   {
     QCString epstopdfArgs(maxCmdLine);
     epstopdfArgs.sprintf("\"%s.eps\" --outfile=\"%s.pdf\"",
-                         outFile,outFile);
+                         absOutFile.data(),absOutFile.data());
     portable_sysTimerStart();
     if (portable_system("epstopdf",epstopdfArgs)!=0)
     {
@@ -83,6 +143,6 @@ void writeDiaGraphFromFile(const char *inFile,const char *outDir,
   }
 
 error:
-  QDir::setCurrent(oldDir);
+  return;
 }
 
