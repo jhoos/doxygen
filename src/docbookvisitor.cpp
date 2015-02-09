@@ -1281,7 +1281,8 @@ void DocbookDocVisitor::writeDiaFile(const QCString &baseName, DocVerbatim *s)
     shortName=shortName.right(shortName.length()-i-1);
   }
   QCString outDir = Config_getString("DOCBOOK_OUTPUT");
-  writeDiaGraphFromFile(baseName+".dia",outDir,shortName,DIA_BITMAP);
+  QCString imgExt = Config_getEnum("DIA_IMAGE_FORMAT");
+  writeDiaGraphFromFile(baseName+".dia",outDir,shortName,"svg"==imgExt ? DIA_SVG:DIA_BITMAP);
   visitPreStart(m_t, s->hasCaption(), shortName, s->width(),s->height());
   visitCaption(this, s->children());
   visitPostEnd(m_t, s->hasCaption());
@@ -1305,9 +1306,10 @@ void DocbookDocVisitor::startDiaFile(const QCString &fileName,
   }
   baseName.prepend("dia_");
   QCString outDir = Config_getString("DOCBOOK_OUTPUT");
-  writeDiaGraphFromFile(fileName,outDir,baseName,DIA_BITMAP);
+  QCString format = Config_getEnum("DIA_IMAGE_FORMAT");
+  writeDiaGraphFromFile(fileName,outDir,baseName,"svg"==format ? DIA_SVG:DIA_BITMAP);
   m_t << "<para>" << endl;
-  visitPreStart(m_t, hasCaption, baseName + ".png",  width,  height);
+  visitPreStart(m_t, hasCaption, baseName + "." + format,  width,  height);
 }
 
 void DocbookDocVisitor::endDiaFile(bool hasCaption)
