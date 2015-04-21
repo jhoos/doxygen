@@ -1230,6 +1230,29 @@ static QCString extractTitleId(QCString &title)
   return "";
 }
 
+static QCString autogenerateTitleId(QCString& title, GrowBuf &out)
+{
+  if (!Config_getBool("MARKDOWN_GENERATE_SECTION_NAMES"))
+  {
+    return "";
+  }
+  QCString id = title.simplifyWhiteSpace();
+  id.replace(QRegExp("[^a-z_A-Z0-9\\- ]"), "");
+  if (Config_getBool("MARKDOWN_GENERATE_SECTION_NAMES_LIKE_GITHUB")) {
+    id.replace(QRegExp(" "), "-");
+    id = id.lower();
+  }
+  else {
+    id.replace(QRegExp(" "), "");
+  }
+  // add an explicit anchor with the bare section ID so that inline links
+  // like "[title](#section)" work
+  out.addStr("<a name=\""+id+"\">\n");
+  // prepend the page name to the id to make it unique
+  id = markdownFileNameToId(g_fileName) + "-" + id;
+  printf("generated id='%s' title='%s'\n",id.data(),title.data());
+  return id;
+}
 
 static int isAtxHeader(const char *data,int size,
                        QCString &header,QCString &id)
@@ -1680,6 +1703,10 @@ void writeOneLineHeaderOrRuler(GrowBuf &out,const char *data,int size)
   }
   else if ((level=isAtxHeader(data,size,header,id)))
   {
+    if (id.isEmpty()) // autogenerate id if it was empty
+    {
+      id = autogenerateTitleId(header, out);
+    }
     //if (level==1) g_correctSectionLevel=FALSE;
     //if (g_correctSectionLevel) level--;
     QCString hTag;
@@ -2065,6 +2092,10 @@ static QCString processBlocks(const QCString &s,int indent)
         QCString header,id;
         convertStringFragment(header,data+pi,i-pi-1);
         id = extractTitleId(header);
+        if (id.isEmpty()) // autogenerate id if it was empty
+        {
+          id = autogenerateTitleId(header, out);
+        }
         //printf("header='%s' is='%s'\n",header.data(),id.data());
         if (!header.isEmpty())
         {
