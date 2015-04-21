@@ -92,6 +92,7 @@ static QDict<LinkRef> g_linkRefs(257);
 static action_t       g_actions[256];
 static Entry         *g_current;
 static QCString       g_fileName;
+static QCString       g_pageId;
 static int            g_lineNr;
 
 // In case a markdown page starts with a level1 header, that header is used
@@ -1231,6 +1232,29 @@ static QCString extractTitleId(QCString &title)
   return "";
 }
 
+static void writeAnchorIdFromTitle(QCString& title, GrowBuf& out)
+{
+  if (Config_getBool("MARKDOWN_AUTO_SECTION_ANCHORS"))
+  {
+    QCString id = title.simplifyWhiteSpace();
+    id.replace(QRegExp("[^a-z_A-Z0-9\\- ]"), ""); // keep only alphanum, dashes, underscores, and spaces
+    id.replace(QRegExp(" "), "-");
+    id = id.lower();
+    out.addStr("<a name=\""+Config_getString("MARKDOWN_AUTO_SECTION_ANCHOR_PREFIX")+id+"\">\n");
+  }
+}
+
+static QCString generateSectionIdFromTitle(QCString& title)
+{
+  if (Config_getBool("MARKDOWN_AUTO_SECTION_NAMES"))
+  {
+    QCString id = title;
+    id.replace(QRegExp("[^a-z_A-Z0-9\\-]"), ""); // keep only alphanum, dashes, and underscores
+    //printf("generated id='%s' title='%s'\n",id.data(),title.data());
+    return g_pageId+"-"+id;
+  }
+  return "";
+}
 
 static int isAtxHeader(const char *data,int size,
                        QCString &header,QCString &id)
@@ -1683,6 +1707,11 @@ void writeOneLineHeaderOrRuler(GrowBuf &out,const char *data,int size)
   }
   else if ((level=isAtxHeader(data,size,header,id)))
   {
+    if (id.isEmpty())
+    {
+      id = generateSectionIdFromTitle(header);
+    }
+    writeAnchorIdFromTitle(header, out);
     //if (level==1) g_correctSectionLevel=FALSE;
     //if (g_correctSectionLevel) level--;
     QCString hTag;
@@ -2068,6 +2097,11 @@ static QCString processBlocks(const QCString &s,int indent)
         QCString header,id;
         convertStringFragment(header,data+pi,i-pi-1);
         id = extractTitleId(header);
+        if (id.isEmpty())
+        {
+          id = generateSectionIdFromTitle(header);
+        }
+	writeAnchorIdFromTitle(header, out);
         //printf("header='%s' is='%s'\n",header.data(),id.data());
         if (!header.isEmpty())
         {
@@ -2368,6 +2402,7 @@ void MarkdownFileParser::parseInput(const char *fileName,
   {
     docs.prepend("@page "+id+" "+title+"\n");
   }
+  g_pageId=id;
   int lineNr=1;
   int position=0;
 
